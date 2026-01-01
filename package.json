@@ -1,0 +1,12 @@
+{
+  "name": "kling-jwt-service",
+  "version": "1.0.0",
+  "main": "kling-jwt-service.js",
+  "scripts": {
+    "start": "node kling-jwt-service.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  }
+}
