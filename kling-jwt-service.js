@@ -1,18 +1,12 @@
 // kling-jwt-service.js
-// Run this on a server you control, then call from n8n
+// Minimal JWT signer for Kling API (because n8n blocks crypto)
+// Deploy to: Railway, Fly.io, or any Node.js host
 
 const express = require('express');
 const crypto = require('crypto');
 
 const app = express();
 app.use(express.json());
-
-const KLING_ACCESS_KEY = process.env.KLING_ACCESS_KEY;
-const KLING_SECRET_KEY = process.env.KLING_SECRET_KEY;
-
-if (!KLING_ACCESS_KEY || !KLING_SECRET_KEY) {
-  throw new Error('Missing KLING_ACCESS_KEY or KLING_SECRET_KEY env vars');
-}
 
 function base64url(input) {
   const buf = Buffer.isBuffer(input) ? input : Buffer.from(input);
@@ -22,40 +16,50 @@ function base64url(input) {
     .replace(/\//g, '_');
 }
 
-function generateKlingJWT() {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'HS256', typ: 'JWT' };
-  const payload = {
-    iss: KLING_ACCESS_KEY,
-    exp: now + 1800, // 30 min
-    nbf: now - 5
-  };
-
-  const encodedHeader = base64url(JSON.stringify(header));
-  const encodedPayload = base64url(JSON.stringify(payload));
-  const signingInput = `${encodedHeader}.${encodedPayload}`;
-
-  const signature = crypto
-    .createHmac('sha256', KLING_SECRET_KEY)
-    .update(signingInput)
-    .digest();
-
-  return `${signingInput}.${base64url(signature)}`;
-}
-
-app.post('/token', (req, res) => {
+app.post('/kling', (req, res) => {
   try {
-    const token = generateKlingJWT();
+    const { access_key, secret_key, timestamp } = req.body;
+    
+    if (!access_key || !secret_key) {
+      return res.status(400).json({ error: 'Missing access_key or secret_key' });
+    }
+
+    const now = timestamp || Math.floor(Date.now() / 1000);
+    const header = { alg: 'HS256', typ: 'JWT' };
+    const payload = {
+      iss: access_key,
+      exp: now + 1800,
+      nbf: now - 5
+    };
+
+    const encodedHeader = base64url(JSON.stringify(header));
+    const encodedPayload = base64url(JSON.stringify(payload));
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+
+    const signature = crypto
+      .createHmac('sha256', secret_key)
+      .update(signingInput)
+      .digest();
+
+    const token = `${signingInput}.${base64url(signature)}`;
+
     res.json({ token });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.listen(3000, () => {
-  console.log('Kling JWT service running on port 3000');
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
-// Usage from n8n:
-// POST http://your-server:3000/token
-// Response: { "token": "eyJhbG..." }
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Kling JWT service: http://localhost:${PORT}`);
+});
+
+// DEPLOY INSTRUCTIONS:
+// 1. npm init -y
+// 2. npm install express cors
+// 3. Deploy to Railway/Fly.io/Render
+// 4. Update n8n workflow URL to your deployed endpoint
