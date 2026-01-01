@@ -54,8 +54,8 @@ app.get('/health', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Kling JWT service: http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Kling JWT service running on port ${PORT}`);
 });
 
 // DEPLOY INSTRUCTIONS:
